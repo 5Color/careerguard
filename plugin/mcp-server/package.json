@@ -1,0 +1,38 @@
+{
+  "name": "@careerguard/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CareerGuard stdio MCP 서버 — extract_jd_matrix / verify_resume_evidence / build_gap_roadmap",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "careerguard-mcp": "dist/index.js"
+  },
+  "exports": {
+    "./core": "./src/core/index.ts"
+  },
+  "files": [
+    "dist",
+    "bundle",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/bundle.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "@google/genai": "^3.6.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "5.9.3"
+  },
+  "license": "MIT"
+}

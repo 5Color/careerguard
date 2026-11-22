@@ -1,0 +1,21 @@
+{
+  "name": "careerguard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CareerGuard — 청년 취업·이력서 팩트체크 MCP & Skill 에이전트 (모노레포)",
+  "workspaces": [
+    "plugin/mcp-server",
+    "web-demo"
+  ],
+  "scripts": {
+    "build:plugin": "npm run build -w @careerguard/mcp-server",
+    "build:web": "npm run build -w web-demo",
+    "build": "npm run build:plugin && npm run build:web",
+    "dev": "npm run dev -w web-demo",
+    "smoke:plugin": "npm run smoke -w @careerguard/mcp-server"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "license": "MIT"
+}

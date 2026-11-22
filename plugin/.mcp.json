@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "careerguard": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/bundle/careerguard-mcp.mjs"],
+      "env": {
+        "GEMINI_API_KEY": "${GEMINI_API_KEY:-}",
+        "GEMINI_MODEL": "${GEMINI_MODEL:-}",
+        "GEMINI_FALLBACK_MODEL": "${GEMINI_FALLBACK_MODEL:-gemini-3.8-flash}"
+      }
+    }
+  }
+}

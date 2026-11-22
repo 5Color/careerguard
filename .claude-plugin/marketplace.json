@@ -1,0 +1,16 @@
+{
+  "name": "careerguard",
+  "owner": {
+    "name": "Team 펙트체커"
+  },
+  "metadata": {
+    "description": "CareerGuard 자소서·이력서 팩트체크 플러그인 마켓플레이스"
+  },
+  "plugins": [
+    {
+      "name": "careerguard",
+      "source": "./plugin",
+      "description": "자소서 초안의 수치·기술스택·경력 환각과 역할 과장을 원본 경험에 대조해 차단하는 MCP + Skill 플러그인"
+    }
+  ]
+}

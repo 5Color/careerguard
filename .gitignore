@@ -1,0 +1,20 @@
+node_modules/
+.next/
+out/
+.vercel/
+*.log
+*.tsbuildinfo
+
+# 환경변수 / 비밀값 — 절대 커밋하지 않음
+.env
+.env.*
+!.env.example
+
+# tsc 빌드 산출물 (배포용 단일 번들 plugin/mcp-server/bundle/ 은 커밋 대상)
+plugin/mcp-server/dist/
+
+# web-demo가 빌드 시 plugin 원문에서 생성하는 파일
+web-demo/src/generated/
+
+# 로컬 도구 설정
+.claude/settings.local.json
