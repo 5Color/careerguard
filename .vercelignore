@@ -1,0 +1,11 @@
+# CLI 업로드에서 비밀값·로컬 산출물 제외 (Git 연동 빌드는 저장소 내용만 사용)
+.env
+.env.*
+!.env.example
+.vercel
+node_modules
+**/node_modules
+**/.next
+plugin/mcp-server/dist
+web-demo/src/generated
+.claude/settings.local.json
