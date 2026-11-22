@@ -6,7 +6,7 @@
 자소서 초안의 모든 사실 주장을 **원본 경험(raw_experience)** 에 대조해, 원본에 없는 수치·기술스택·경력(환각)과 역할 부풀리기(과장)를 차단하고,
 원본 근거만으로 쓴 안전 수정안과 JD 부족 역량의 2~4주 보완 로드맵을 제시합니다.
 
-- 🌐 **웹 데모** (`web-demo/`): 로그인 없이 접속 즉시 샘플 1이 자동 실행 — 10초 안에 체험
+- 🌐 **웹 데모**: **https://careerguard-xi.vercel.app** — 로그인 없이 접속 즉시 샘플 1이 자동 실행 (`web-demo/`)
 - 🧩 **플러그인** (`plugin/`): Claude Code / Cursor에서 바로 쓰는 표준 stdio MCP 서버(Tool 3종) + Skill
 
 ---
@@ -43,7 +43,7 @@
 | 순위 | 설정 | 실패 시 |
 |---|---|---|
 | 1 | `GEMINI_MODEL` (예: `gemini-4-hydrogen`, `gemini-4-neon`) | 2순위로 1회 재시도 |
-| 2 | `GEMINI_FALLBACK_MODEL` (기본값 `gemini-2.5-flash`) | 오프라인 모드 |
+| 2 | `GEMINI_FALLBACK_MODEL` (기본값 `gemini-3.8-flash`) | 오프라인 모드 |
 | 3 | 1단계 결정론적 코드 검증 + 룰 기반 JD 매칭 + 템플릿 로드맵 | — (항상 동작) |
 
 - 키 인증 실패는 모든 모델에 공통이므로 즉시 3순위로 내려갑니다.
@@ -52,7 +52,7 @@
 
 > **확인된 사실 (2026-11-23, 이 프로젝트의 API 키 기준)**
 > - `models.list`에 `gemini-4-hydrogen`, `gemini-4-neon` 이 generateContent 지원 모델로 노출됨
-> - `gemini-2.5-flash` 는 목록에는 있으나 호출 시 **404 "no longer available to new users"** → 신규 키에서는 `GEMINI_FALLBACK_MODEL=gemini-3.8-flash` 권장
+> - `gemini-2.5-flash` 는 목록에는 있으나 호출 시 **404 "no longer available to new users"** → 2순위 기본값을 `gemini-3.8-flash` 로 지정
 > - `gemini-3.5-flash` 요청 시 실제 응답 모델은 `gemini-3.6-flash` 였음 (응답 모델 표시가 필요한 이유)
 > - 사고 수준 `MINIMAL` 은 위 모델들에서 거부됨 → 기본값 `LOW`
 
@@ -111,14 +111,18 @@ npm run dev                 # http://localhost:3000
 |---|---|---|
 | `GEMINI_API_KEY` | — | 없으면 오프라인 결정론적 모드로 동작 |
 | `GEMINI_MODEL` | — | 1순위 모델 ID (예: `gemini-4-hydrogen`) |
-| `GEMINI_FALLBACK_MODEL` | `gemini-2.5-flash` | 2순위 안정화 Flash 모델 |
+| `GEMINI_FALLBACK_MODEL` | `gemini-3.8-flash` | 2순위 안정화 Flash 모델 |
 | `GEMINI_THINKING_LEVEL` | `LOW` | 3.x/4.x 모델 사고 수준 (`DEFAULT`=모델 기본값) |
 | `GEMINI_TIMEOUT_MS` | `25000` | 모델 1회 시도당 타임아웃 |
 
-### Vercel 배포
-1. 저장소 import → **Root Directory = `web-demo`** (npm workspaces 자동 인식, 루트에서 install)
-2. Environment Variables에 위 변수 등록 (`NEXT_PUBLIC_` 접두사 금지)
-3. `/api/analyze` 는 Node.js 런타임, `maxDuration = 60s` (1순위 25s + 2순위 25s 여유)
+### Vercel 배포 (현재: https://careerguard-xi.vercel.app , `main` push 시 자동 배포)
+1. 저장소 import → **Root Directory = `web-demo`**, Node.js 24.x, Framework = Next.js
+2. `web-demo/vercel.json` 이 install을 모노레포 루트에서 수행 (`cd .. && npm ci`) → `../plugin` 코어가 workspace 링크로 설치됨
+   - `web-demo/package.json` 의 `"@careerguard/mcp-server": "file:../plugin/mcp-server"` 로 npm 레지스트리 조회를 원천 차단 (동명 패키지 혼입 방지)
+   - `next.config.ts` 의 `transpilePackages` + `turbopack.root` / `outputFileTracingRoot` = 모노레포 루트 → 상위 경로 TS 소스 컴파일 및 서버리스 함수 파일 추적
+   - `prebuild` 가 `plugin/` 의 SKILL.md·.mcp.json 원문을 번들에 포함 (런타임 파일시스템 접근 없음)
+3. Environment Variables (Production·Preview, Sensitive): `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`, `GEMINI_THINKING_LEVEL` — `NEXT_PUBLIC_` 접두사 금지
+4. `/api/analyze` 는 Node.js 런타임, `maxDuration = 60s` (1순위 25s + 2순위 25s 여유)
 
 ---
 
@@ -162,6 +166,9 @@ npm run dev                 # http://localhost:3000
 | `web-demo` `next build` | ✅ |
 | HTTP 스모크 — 오프라인 모드 × 샘플 3종 | ✅ 24~690ms |
 | HTTP 스모크 — 하이브리드(`gemini-4-hydrogen`) × 샘플 3종 | ✅ 7.5~14.8s, 응답 모델 표시 |
+| 새 clone에서 Vercel 방식 빌드 (`cd .. && npm ci` → `web-demo` 빌드) | ✅ |
+| **Vercel 프로덕션** 스모크 (오프라인 3 + Hydrogen 3 + 입력 검증) | ✅ 하이브리드 6.9~11.1s, 공개 HTML/JS에 키 없음 |
+| 입력 상한 5,000자 경계 · IP당 분당 10회 | ✅ 5,000자 200 / 5,001자 400 · 11번째 요청 429 |
 | 폴백: 존재하지 않는 1순위 → `gemini-3.8-flash` 응답 | ✅ |
 | 폴백: 타임아웃 / 잘못된 키 → 오프라인 모드 | ✅ 앱 정상 응답 + 배지 표시 |
 
@@ -176,7 +183,7 @@ npm run dev                 # http://localhost:3000
 ## 6. 보안 · 컴플라이언스
 - API 키는 **서버 사이드 환경변수로만** 읽습니다. 클라이언트 코드에 `process.env`/`NEXT_PUBLIC_` 사용 없음, 응답·로그 문자열에서 키 패턴 마스킹.
 - 저장소·빌드 산출물(`.next`, 번들)에 키 문자열이 없음을 grep으로 확인. `.env*` 는 `.gitignore` 처리 (`.env.example` 만 커밋).
-- 입력 6,000자 제한, IP당 분당 20회 간이 제한, 입력값 비저장.
+- 공개 데모 보호: 항목(JD·원본 경험·초안)당 **5,000자** 상한, **IP당 분당 10회** 호출 제한(서버리스 인스턴스 단위 best-effort, 초과 시 HTTP 429), 입력값 비저장.
 - 화면 상단 고지: "AI가 생성·검증한 결과입니다 (인공지능기본법 제31조 준수 안내)", "실제 개인정보 입력 금지 · 가상 샘플 데이터 사용". 모든 샘플은 가상 인물·가상 기업입니다.
 
 ---
