@@ -54,7 +54,7 @@ export function estimateCostUsd(model: string, inputTokens: number, outputTokens
   return (inputTokens * p.input + outputTokens * p.output) / 1_000_000;
 }
 
-export type LlmErrorKind = "no_key" | "quota" | "auth" | "timeout" | "network" | "parse" | "model" | "unknown";
+export type LlmErrorKind = "no_key" | "quota" | "auth" | "timeout" | "abort" | "network" | "parse" | "model" | "unknown";
 
 export class LlmError extends Error {
   constructor(
@@ -121,11 +121,14 @@ function thinkingFor(model: string): { thinkingConfig?: { thinkingBudget?: numbe
 async function callOnce<T>(
   ai: GoogleGenAI,
   model: string,
-  args: { systemInstruction: string; prompt: string; schema: Record<string, unknown> },
+  args: { systemInstruction: string; prompt: string; schema: Record<string, unknown>; signal?: AbortSignal },
   timeoutMs: number,
   withThinking: boolean,
 ) {
+  if (args.signal?.aborted) throw new LlmError("요청이 취소됨", "abort");
   const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  args.signal?.addEventListener("abort", onAbort, { once: true });
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await ai.models.generateContent({
@@ -151,6 +154,7 @@ async function callOnce<T>(
     return { res, data };
   } finally {
     clearTimeout(timer);
+    args.signal?.removeEventListener("abort", onAbort);
   }
 }
 
@@ -164,6 +168,7 @@ export async function callGeminiJson<T>(args: {
   prompt: string;
   schema: Record<string, unknown>;
   config?: LlmConfig;
+  signal?: AbortSignal;
 }): Promise<JsonCallResult<T>> {
   const { apiKey, models, timeoutMs } = resolveLlmConfig(args.config);
   if (!apiKey) throw new LlmError("GEMINI_API_KEY 미설정", "no_key");
@@ -173,12 +178,14 @@ export async function callGeminiJson<T>(args: {
   let lastErr: LlmError | undefined;
 
   for (const model of models) {
+    if (args.signal?.aborted) throw new LlmError("요청이 취소됨", "abort", attempts);
     const t0 = performance.now();
     try {
       let out: Awaited<ReturnType<typeof callOnce<T>>>;
       try {
         out = await callOnce<T>(ai, model, args, timeoutMs, true);
       } catch (err) {
+        if (args.signal?.aborted) throw new LlmError("요청이 취소됨", "abort", attempts);
         // 모델이 thinking 설정을 거부하면(400) 같은 모델에 기본 설정으로 1회만 재시도
         const msg = err instanceof Error ? err.message : String(err);
         if (!/thinking/i.test(msg) || !/400|INVALID_ARGUMENT/i.test(msg)) throw err;
@@ -203,6 +210,9 @@ export async function callGeminiJson<T>(args: {
         estCostUsd: estimateCostUsd(res.modelVersion || model, inputTokens, outputTokens),
       };
     } catch (err) {
+      if (args.signal?.aborted || (err instanceof LlmError && err.kind === "abort")) {
+        throw new LlmError("요청이 취소됨", "abort", attempts);
+      }
       const e = classify(err);
       attempts.push({ model, ok: false, latencyMs: Math.round(performance.now() - t0), error: e.message, errorKind: e.kind });
       lastErr = e;

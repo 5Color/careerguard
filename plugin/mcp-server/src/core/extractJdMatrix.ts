@@ -79,7 +79,9 @@ export function extractJdMatrix(jdText: string): JdMatrix {
     } else if (!sawHeader) {
       // 헤더가 전혀 없는 JD: 줄 단위로 추정
       if (/우대|가산점|preferred|plus/i.test(text)) items.push({ category: "preferred", text });
-      else if (/경험|능력|이해|가능|활용|지식|역량|보유/.test(text)) items.push({ category: "required", text });
+      else if (/경험|능력|이해|가능|활용|지식|역량|보유|필수|요구/.test(text) || requirementKeywords(text).length > 0) {
+        items.push({ category: "required", text });
+      }
     }
   }
 

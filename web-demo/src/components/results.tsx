@@ -163,6 +163,7 @@ export function FactCheckTab({
   result,
   analyzedDraft,
   applied,
+  draftEdited,
   onApply,
   onApplyAll,
   activeId,
@@ -171,6 +172,7 @@ export function FactCheckTab({
   result: AnalyzeResult;
   analyzedDraft: string;
   applied: Applied;
+  draftEdited: boolean;
   onApply: (id: string, text: string) => void;
   onApplyAll: () => void;
   activeId: string | null;
@@ -227,12 +229,20 @@ export function FactCheckTab({
         {pending.length > 0 && (
           <button
             onClick={onApplyAll}
-            className="ml-auto rounded-md bg-navy-800 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-navy-700"
+            disabled={draftEdited}
+            title={draftEdited ? "③ 초안을 직접 수정했습니다. 다시 팩트체크를 실행한 뒤 적용해 주세요." : undefined}
+            className="ml-auto rounded-md bg-navy-800 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-navy-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             안전 수정안 일괄 적용 ({pending.length})
           </button>
         )}
       </div>
+
+      {draftEdited && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-[12px] text-amber-900">
+          ③ 자소서 초안을 직접 수정했습니다. 수동 편집 내용을 보호하기 위해 원클릭 적용이 잠겼습니다 — 왼쪽에서 <strong>팩트체크 실행</strong>을 눌러 재검증해 주세요.
+        </p>
+      )}
 
       <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 text-[14.5px] leading-[2.05] whitespace-pre-wrap text-navy-900">
         {parts}
@@ -293,14 +303,15 @@ export function FactCheckTab({
                       <span className="text-[12px] font-semibold text-navy-800">원본 기반 안전 수정안</span>
                       <SourceTag source={s.suggestionSource === "llm" ? "llm" : "rule"} />
                       <button
-                        disabled={s.id in applied}
+                        disabled={s.id in applied || draftEdited}
+                        title={draftEdited ? "③ 초안을 직접 수정했습니다. 다시 팩트체크를 실행한 뒤 적용해 주세요." : undefined}
                         onClick={(e) => {
                           e.stopPropagation();
                           onApply(s.id, s.suggestion ?? "");
                         }}
                         className="ml-auto rounded-md bg-navy-800 px-3 py-1 text-[11.5px] font-semibold text-white hover:bg-navy-700 disabled:cursor-default disabled:bg-slate-300"
                       >
-                        {s.id in applied ? "적용 완료" : s.suggestion === "" ? "문장 삭제 적용" : "원클릭 적용"}
+                        {s.id in applied ? "적용 완료" : draftEdited ? "재검증 후 적용" : s.suggestion === "" ? "문장 삭제 적용" : "원클릭 적용"}
                       </button>
                     </div>
                     <p className="mt-1.5 text-[13px] leading-relaxed text-navy-950">
@@ -338,7 +349,38 @@ export function JdMatrixTab({ result }: { result: AnalyzeResult }) {
         <span>미충족 {count("unmet")}</span>
         <span className="ml-auto text-[11px] text-slate-400">판정 근거: 원본 경험만 사용 (초안 내용은 근거로 인정하지 않음)</span>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
+      {/* 모바일 카드 뷰 */}
+      <div className="space-y-2.5 md:hidden">
+        {rows.map((r) => (
+          <div key={r.id} className="rounded-lg border border-slate-200 bg-white p-3.5 text-[12.5px]">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className={r.category === "required" ? "bg-navy-800 text-white ring-navy-800" : "bg-white text-navy-700 ring-navy-200"}>
+                {r.category === "required" ? "필수" : "우대"}
+              </Badge>
+              <Badge className={COVERAGE_META[r.status].cls}>{COVERAGE_META[r.status].label}</Badge>
+              <SourceTag source={r.source === "llm" ? "llm" : "code"} />
+            </div>
+            <p className="mt-2 font-medium text-navy-900">{r.text}</p>
+            {r.keywords.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1">
+                {r.keywords.map((k) => (
+                  <span
+                    key={k}
+                    className={`rounded px-1.5 py-0.5 text-[11px] ${r.matched.includes(k) ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-500 line-through decoration-rose-400"}`}
+                  >
+                    {k}
+                  </span>
+                ))}
+                {r.logic === "any" && r.keywords.length > 1 && <span className="text-[10px] text-slate-400">(택1)</span>}
+              </div>
+            )}
+            <p className="mt-2 text-[12px] leading-relaxed text-slate-600">{r.evidence}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* 데스크톱 테이블 뷰 */}
+      <div className="hidden overflow-x-auto rounded-lg border border-slate-200 md:block">
         <table className="w-full min-w-[640px] text-left text-[12.5px]">
           <thead className="bg-navy-50 text-[11px] uppercase tracking-wide text-navy-700">
             <tr>

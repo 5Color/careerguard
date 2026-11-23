@@ -39,6 +39,7 @@ function contentTokens(text: string): string[] {
 export function jdRuleCoverage(matrix: JdMatrix, rawExperience: string): RequirementCoverage[] {
   const rawFacts = canonicalSet(rawExperience, [...STACK_TERMS, ...CERT_TERMS]);
   const rawConcepts = canonicalSet(rawExperience, CONCEPT_TERMS);
+  const hardTermSet = new Set([...STACK_TERMS, ...CERT_TERMS].map((t) => t.canonical));
   const rawSentences = splitSentences(rawExperience);
   const has = (kw: string) => rawFacts.has(kw) || rawConcepts.has(kw);
   const evidenceOf = (kw: string) =>
@@ -48,14 +49,22 @@ export function jdRuleCoverage(matrix: JdMatrix, rawExperience: string): Require
     if (req.keywords.length) {
       const matched = req.keywords.filter(has);
       const missing = req.keywords.filter((k) => !has(k));
+      const hardKeywords = req.keywords.filter((k) => hardTermSet.has(k));
+      const hardMatched = hardKeywords.filter((k) => rawFacts.has(k));
       let status: Coverage;
-      if (req.logic === "any") status = matched.length ? "met" : "unmet";
-      else status = matched.length === req.keywords.length ? "met" : matched.length ? "partial" : "unmet";
-      const ev = matched.map(evidenceOf).find(Boolean);
+      if (req.logic === "any") {
+        status = matched.length ? "met" : "unmet";
+      } else if (hardKeywords.length > 0 && hardMatched.length === 0) {
+        // 요구사항에 핵심 하드 스택/자격이 있는데 전부 미매칭이면 개념어만으로 partial 판정하지 않음
+        status = "unmet";
+      } else {
+        status = matched.length === req.keywords.length ? "met" : matched.length ? "partial" : "unmet";
+      }
+      const ev = (status === "unmet" ? [] : matched).map(evidenceOf).find(Boolean);
       return {
         ...req,
         status,
-        matched,
+        matched: status === "unmet" ? [] : matched,
         missing: req.logic === "any" && matched.length ? [] : missing,
         evidence: ev ? `원본: "${ev}"` : "원본 경험에서 관련 근거를 찾지 못함",
         source: "rule",

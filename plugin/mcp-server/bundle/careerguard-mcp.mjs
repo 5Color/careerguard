@@ -59234,7 +59234,7 @@ var CONCEPT_TERMS = [
   P("\uC131\uB2A5 \uCD5C\uC801\uD654", ["\uC131\uB2A5 \uAC1C\uC120", "\uC131\uB2A5 \uCD5C\uC801\uD654", "\uCD5C\uC801\uD654", "\uC751\uB2F5 \uC2DC\uAC04", "\uC751\uB2F5 \uC18D\uB3C4", "\uCFFC\uB9AC \uD29C\uB2DD", "\uCE90\uC2F1", "\uCE90\uC2DC"]),
   P("API \uC124\uACC4\xB7\uAC1C\uBC1C", ["API \uC124\uACC4", "API \uAC1C\uBC1C", "REST API", "RESTful", "\uC5D4\uB4DC\uD3EC\uC778\uD2B8"]),
   P("DB \uC124\uACC4", ["DB \uC124\uACC4", "\uB370\uC774\uD130\uBCA0\uC774\uC2A4 \uC124\uACC4", "ERD", "\uC2A4\uD0A4\uB9C8 \uC124\uACC4", "\uB370\uC774\uD130 \uBAA8\uB378\uB9C1", "\uC778\uB371\uC2A4"]),
-  P("\uD074\uB77C\uC6B0\uB4DC \uBC30\uD3EC", ["\uBC30\uD3EC", "AWS", "GCP", "Azure", "EC2", "\uD074\uB77C\uC6B0\uB4DC"]),
+  P("\uD074\uB77C\uC6B0\uB4DC \uBC30\uD3EC", ["\uD074\uB77C\uC6B0\uB4DC \uBC30\uD3EC", "AWS", "GCP", "Azure", "EC2", "\uD074\uB77C\uC6B0\uB4DC"]),
   P("CI/CD", ["CI/CD", "GitHub Actions", "Jenkins", "\uC790\uB3D9 \uBC30\uD3EC", "\uD30C\uC774\uD504\uB77C\uC778 \uC790\uB3D9\uD654"]),
   P("\uCEE8\uD14C\uC774\uB108", ["Docker", "\uB3C4\uCEE4", "\uCEE8\uD14C\uC774\uB108"]),
   P("\uBAA8\uB378 \uC11C\uBE59", ["\uC11C\uBE59", "\uCD94\uB860 API", "\uCD94\uB860 \uC11C\uBC84", "FastAPI", "Triton", "\uBAA8\uB378 \uBC30\uD3EC"]),
@@ -59399,7 +59399,9 @@ function extractJdMatrix(jdText) {
       items.push({ category: section, text });
     } else if (!sawHeader) {
       if (/우대|가산점|preferred|plus/i.test(text)) items.push({ category: "preferred", text });
-      else if (/경험|능력|이해|가능|활용|지식|역량|보유/.test(text)) items.push({ category: "required", text });
+      else if (/경험|능력|이해|가능|활용|지식|역량|보유|필수|요구/.test(text) || requirementKeywords(text).length > 0) {
+        items.push({ category: "required", text });
+      }
     }
   }
   const reqs = items.map((it, i2) => {
@@ -86544,7 +86546,10 @@ function thinkingFor(model) {
   return { thinkingConfig: { thinkingLevel: level } };
 }
 async function callOnce(ai, model, args, timeoutMs, withThinking) {
+  if (args.signal?.aborted) throw new LlmError("\uC694\uCCAD\uC774 \uCDE8\uC18C\uB428", "abort");
   const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  args.signal?.addEventListener("abort", onAbort, { once: true });
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await ai.models.generateContent({
@@ -86570,6 +86575,7 @@ async function callOnce(ai, model, args, timeoutMs, withThinking) {
     return { res, data };
   } finally {
     clearTimeout(timer);
+    args.signal?.removeEventListener("abort", onAbort);
   }
 }
 async function callGeminiJson(args) {
@@ -86579,12 +86585,14 @@ async function callGeminiJson(args) {
   const attempts = [];
   let lastErr;
   for (const model of models) {
+    if (args.signal?.aborted) throw new LlmError("\uC694\uCCAD\uC774 \uCDE8\uC18C\uB428", "abort", attempts);
     const t0 = performance.now();
     try {
       let out;
       try {
         out = await callOnce(ai, model, args, timeoutMs, true);
       } catch (err) {
+        if (args.signal?.aborted) throw new LlmError("\uC694\uCCAD\uC774 \uCDE8\uC18C\uB428", "abort", attempts);
         const msg = err instanceof Error ? err.message : String(err);
         if (!/thinking/i.test(msg) || !/400|INVALID_ARGUMENT/i.test(msg)) throw err;
         attempts.push({ model: `${model} (thinking \uC124\uC815 \uAC70\uBD80)`, ok: false, latencyMs: Math.round(performance.now() - t0), error: "thinking \uC124\uC815 \uBBF8\uC9C0\uC6D0 \u2192 \uAE30\uBCF8 \uC124\uC815\uC73C\uB85C \uC7AC\uC2DC\uB3C4", errorKind: "model" });
@@ -86608,6 +86616,9 @@ async function callGeminiJson(args) {
         estCostUsd: estimateCostUsd(res.modelVersion || model, inputTokens, outputTokens)
       };
     } catch (err) {
+      if (args.signal?.aborted || err instanceof LlmError && err.kind === "abort") {
+        throw new LlmError("\uC694\uCCAD\uC774 \uCDE8\uC18C\uB428", "abort", attempts);
+      }
       const e2 = classify(err);
       attempts.push({ model, ok: false, latencyMs: Math.round(performance.now() - t0), error: e2.message, errorKind: e2.kind });
       lastErr = e2;
@@ -86674,6 +86685,7 @@ function contentTokens(text) {
 function jdRuleCoverage(matrix, rawExperience) {
   const rawFacts = canonicalSet(rawExperience, [...STACK_TERMS, ...CERT_TERMS]);
   const rawConcepts = canonicalSet(rawExperience, CONCEPT_TERMS);
+  const hardTermSet = new Set([...STACK_TERMS, ...CERT_TERMS].map((t2) => t2.canonical));
   const rawSentences = splitSentences(rawExperience);
   const has = (kw) => rawFacts.has(kw) || rawConcepts.has(kw);
   const evidenceOf = (kw) => rawSentences.find((s2) => canonicalSet(s2.text, [...STACK_TERMS, ...CERT_TERMS, ...CONCEPT_TERMS]).has(kw))?.text;
@@ -86681,14 +86693,21 @@ function jdRuleCoverage(matrix, rawExperience) {
     if (req.keywords.length) {
       const matched2 = req.keywords.filter(has);
       const missing = req.keywords.filter((k) => !has(k));
+      const hardKeywords = req.keywords.filter((k) => hardTermSet.has(k));
+      const hardMatched = hardKeywords.filter((k) => rawFacts.has(k));
       let status2;
-      if (req.logic === "any") status2 = matched2.length ? "met" : "unmet";
-      else status2 = matched2.length === req.keywords.length ? "met" : matched2.length ? "partial" : "unmet";
-      const ev2 = matched2.map(evidenceOf).find(Boolean);
+      if (req.logic === "any") {
+        status2 = matched2.length ? "met" : "unmet";
+      } else if (hardKeywords.length > 0 && hardMatched.length === 0) {
+        status2 = "unmet";
+      } else {
+        status2 = matched2.length === req.keywords.length ? "met" : matched2.length ? "partial" : "unmet";
+      }
+      const ev2 = (status2 === "unmet" ? [] : matched2).map(evidenceOf).find(Boolean);
       return {
         ...req,
         status: status2,
-        matched: matched2,
+        matched: status2 === "unmet" ? [] : matched2,
         missing: req.logic === "any" && matched2.length ? [] : missing,
         evidence: ev2 ? `\uC6D0\uBCF8: "${ev2}"` : "\uC6D0\uBCF8 \uACBD\uD5D8\uC5D0\uC11C \uAD00\uB828 \uADFC\uAC70\uB97C \uCC3E\uC9C0 \uBABB\uD568",
         source: "rule"
@@ -87385,7 +87404,8 @@ async function verifyEvidence(input2) {
 \uC751\uB2F5\uC740 \uBC18\uB4DC\uC2DC \uC9C0\uC815\uB41C JSON \uC2A4\uD0A4\uB9C8\uB97C \uB530\uB978\uB2E4. \uBAA8\uB4E0 \uD14D\uC2A4\uD2B8\uB294 \uD55C\uAD6D\uC5B4\uB85C \uC4F4\uB2E4.`,
       prompt: buildPrompt(input2.rawExperience, stage1, input2.jdMatrix),
       schema: LLM_RESPONSE_SCHEMA,
-      config: input2.llm
+      config: input2.llm,
+      signal: input2.signal
     });
     const stage2Ms = Math.round(performance.now() - t2);
     const byId = new Map((res.data.sentences ?? []).map((s2) => [s2.id, s2]));
@@ -87451,6 +87471,9 @@ async function verifyEvidence(input2) {
       timings: { stage1Ms, stage2Ms, totalMs: Math.round(performance.now() - tStart) }
     };
   } catch (err) {
+    if (input2.signal?.aborted || err instanceof LlmError && err.kind === "abort") {
+      throw err;
+    }
     const reason = err instanceof LlmError ? err.message : "Gemini \uD638\uCD9C \uC911 \uC54C \uC218 \uC5C6\uB294 \uC624\uB958";
     const out = base();
     out.timings.stage2Ms = Math.round(performance.now() - t2);

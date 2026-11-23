@@ -24,6 +24,7 @@ function skillInfo() {
 export async function runPipeline(
   req: AnalyzeRequest,
   onLog: (log: LogStep) => void = () => {},
+  signal?: AbortSignal,
 ): Promise<AnalyzeResult> {
   const t0 = performance.now();
   const at = () => Math.round(performance.now() - t0);
@@ -73,6 +74,7 @@ export async function runPipeline(
     jdMatrix: jd,
     useLlm: !forceOffline,
     systemPrompt: SKILL_MD,
+    signal,
     onStage1: (info) => {
       emit({
         id: "verify-1",

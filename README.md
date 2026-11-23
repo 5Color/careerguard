@@ -1,6 +1,6 @@
 # CareerGuard — 청년 취업·이력서 팩트체크 MCP & Skill 에이전트
 
-> 2026 대한민국 청년 CAREER FAIR AI 해커톤 · 팀 **펙트체커** (1인 개발)
+> 2026 대한민국 청년 CAREER FAIR AI 해커톤 · 팀 **팩트체커** (1인 개발)
 
 **"이미 초안을 작성한 취준생의 최종 팩트체크"** 에 최적화된 초저비용 단일 패스(Single-Pass) 하이브리드 검증 에이전트입니다.
 자소서 초안의 모든 사실 주장을 **원본 경험(raw_experience)** 에 대조해, 원본에 없는 수치·기술스택·경력(환각)과 역할 부풀리기(과장)를 차단하고,
@@ -130,7 +130,7 @@ npm run dev                 # http://localhost:3000
 
 **Claude Code**
 ```
-/plugin marketplace add <이 저장소 경로 또는 GitHub URL>
+/plugin marketplace add https://github.com/5Color/careerguard
 /plugin install careerguard@careerguard
 ```
 `plugin/.mcp.json` 이 `${CLAUDE_PLUGIN_ROOT}/mcp-server/bundle/careerguard-mcp.mjs` 를 stdio로 실행하고, `GEMINI_API_KEY` 등은 셸 환경변수에서 전달됩니다 (미설정 시 오프라인 모드).
@@ -174,7 +174,7 @@ npm run dev                 # http://localhost:3000
 
 | 샘플 | 시나리오 | 판정 (오프라인/하이브리드 동일) | JD 매칭 |
 |---|---|---|---|
-| 1 백엔드 신입 | 30% → 60% 수치 과장, 팀원 → 총괄 리드 | 환각 1 (60%) · 과장 1 (총괄 리드) | 88% |
+| 1 백엔드 신입 | 30% → 60% 수치 과장, 팀원 → 총괄 리드 | 환각 1 (60%) · 과장 1 (총괄 리드) | 83% |
 | 2 AI 엔지니어 | 원본에 없는 인턴 6개월, 쿠버네티스 | 환각 2 (인턴·쿠버네티스) | 77% |
 | 3 데이터 분석가 | 사실 일치, A/B·통계·GA4·BigQuery 누락 | 전 문장 일치 (신뢰도 100) | 50% |
 

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "청년 취업·이력서 팩트체크: JD 역량 구조화 → 1차 결정론적 코드 검증 + 2차 단일 패스 LLM 의미 검증 → 2~4주 단기 보완 로드맵",
   "author": {
-    "name": "Team 펙트체커"
+    "name": "Team 팩트체커"
   },
   "license": "MIT",
   "keywords": ["resume", "fact-check", "mcp", "career", "hallucination-guard"]

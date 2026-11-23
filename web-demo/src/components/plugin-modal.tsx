@@ -16,7 +16,7 @@ const FILES = [
 ] as const;
 
 const INSTALL = `# Claude Code
-/plugin marketplace add <이 저장소 경로 또는 GitHub URL>
+/plugin marketplace add https://github.com/5Color/careerguard
 /plugin install careerguard@careerguard
 
 # Cursor (.cursor/mcp.json)

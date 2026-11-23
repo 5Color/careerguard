@@ -52,6 +52,8 @@ export interface VerifyInput {
   systemPrompt?: string;
   /** 1단계 완료 직후 호출 (실시간 로그용) */
   onStage1?: (info: { stage1Ms: number; claimsChecked: number; stats: VerifyStats; willCallLlm: boolean; models: string[] }) => void;
+  /** 클라이언트 요청 취소 시 LLM 호출을 즉시 중단하기 위한 시그널 */
+  signal?: AbortSignal;
 }
 
 // ---------------- 1단계: 결정론적 코드 검증 ----------------
@@ -486,6 +488,7 @@ export async function verifyEvidence(input: VerifyInput): Promise<VerifyResult> 
       prompt: buildPrompt(input.rawExperience, stage1, input.jdMatrix),
       schema: LLM_RESPONSE_SCHEMA as unknown as Record<string, unknown>,
       config: input.llm,
+      signal: input.signal,
     });
     const stage2Ms = Math.round(performance.now() - t2);
     const byId = new Map((res.data.sentences ?? []).map((s) => [s.id, s]));
@@ -557,6 +560,9 @@ export async function verifyEvidence(input: VerifyInput): Promise<VerifyResult> 
       timings: { stage1Ms, stage2Ms, totalMs: Math.round(performance.now() - tStart) },
     };
   } catch (err) {
+    if (input.signal?.aborted || (err instanceof LlmError && err.kind === "abort")) {
+      throw err;
+    }
     const reason = err instanceof LlmError ? err.message : "Gemini 호출 중 알 수 없는 오류";
     const out = base();
     out.timings.stage2Ms = Math.round(performance.now() - t2);

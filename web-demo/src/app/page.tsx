@@ -38,6 +38,7 @@ export default function Home() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("fact");
   const [pluginOpen, setPluginOpen] = useState(false);
+  const [draftCopied, setDraftCopied] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const autoRan = useRef(false);
 
@@ -121,20 +122,33 @@ export default function Home() {
     void analyze({ jd: s.jd, raw: s.raw, draft: s.draft, mode });
   };
 
+  const expectedDraft = result ? rebuildDraft(analyzedDraft, result, applied) : analyzedDraft;
+  const draftEdited = !!result && draft.trim() !== expectedDraft.trim();
+
   const applyFix = (id: string, text: string) => {
-    if (!result) return;
+    if (!result || draftEdited) return;
     const next = { ...applied, [id]: text };
     setApplied(next);
     setDraft(rebuildDraft(analyzedDraft, result, next));
   };
   const applyAll = () => {
-    if (!result) return;
+    if (!result || draftEdited) return;
     const next = { ...applied };
     for (const s of result.verify.sentences) {
       if (s.status !== "verified" && s.suggestion !== undefined && !(s.id in next)) next[s.id] = s.suggestion;
     }
     setApplied(next);
     setDraft(rebuildDraft(analyzedDraft, result, next));
+  };
+  const copyDraft = async () => {
+    if (!draft.trim()) return;
+    try {
+      await navigator.clipboard.writeText(draft);
+      setDraftCopied(true);
+      setTimeout(() => setDraftCopied(false), 1500);
+    } catch {
+      /* 클립보드 권한 없음 */
+    }
   };
 
   const appliedCount = Object.keys(applied).length;
@@ -150,7 +164,7 @@ export default function Home() {
               <h1 className="text-[17px] font-bold leading-tight tracking-tight">
                 CareerGuard <span className="font-medium text-navy-300">자소서 팩트체크</span>
               </h1>
-              <p className="text-[11px] text-navy-300">팀 펙트체커 · MCP + Skill 하이브리드 단일 패스 검증</p>
+              <p className="text-[11px] text-navy-300">팀 팩트체커 · MCP + Skill 하이브리드 단일 패스 검증</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[11px]">
@@ -161,12 +175,22 @@ export default function Home() {
               ⚠ 실제 개인정보 입력 금지 · 가상 샘플 데이터 사용
             </span>
           </div>
-          <button
-            onClick={() => setPluginOpen(true)}
-            className="ml-auto rounded-lg bg-white px-3.5 py-2 text-xs font-bold text-navy-900 shadow-sm hover:bg-navy-50"
-          >
-            {"</>"} 플러그인 패키지 보기
-          </button>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <a
+              href="https://github.com/5Color/careerguard"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-navy-600 bg-navy-800/80 px-3 py-2 text-xs font-semibold text-navy-100 transition hover:bg-navy-700"
+            >
+              GitHub ↗
+            </a>
+            <button
+              onClick={() => setPluginOpen(true)}
+              className="rounded-lg bg-white px-3.5 py-2 text-xs font-bold text-navy-900 shadow-sm hover:bg-navy-50"
+            >
+              {"</>"} 플러그인 패키지 보기
+            </button>
+          </div>
         </div>
       </header>
 
@@ -180,8 +204,7 @@ export default function Home() {
                 <button
                   key={s.id}
                   onClick={() => loadSample(s)}
-                  disabled={running}
-                  className={`rounded-lg border px-3 py-2.5 text-left transition disabled:opacity-60 ${sampleId === s.id ? "border-navy-600 bg-navy-50 ring-1 ring-navy-600" : "border-slate-200 hover:border-navy-300 hover:bg-slate-50"}`}
+                  className={`rounded-lg border px-3 py-2.5 text-left transition ${sampleId === s.id ? "border-navy-600 bg-navy-50 ring-1 ring-navy-600" : "border-slate-200 hover:border-navy-300 hover:bg-slate-50"}`}
                 >
                   <span className="block text-[13px] font-semibold text-navy-900">{s.label}</span>
                   <span className="block text-[11.5px] text-slate-500">
@@ -194,16 +217,29 @@ export default function Home() {
 
           <Card className="space-y-3 p-4">
             {[
-              { label: "① 채용공고 (JD)", value: jd, set: setJd, rows: 8 },
-              { label: "② 원본 경험 (raw_experience · 유일한 근거)", value: raw, set: setRaw, rows: 8 },
-              { label: "③ 자소서 초안 (draft_text · 검증 대상)", value: draft, set: setDraft, rows: 8 },
+              { id: "jd", label: "① 채용공고 (JD)", value: jd, set: setJd, rows: 8 },
+              { id: "raw", label: "② 원본 경험 (raw_experience · 유일한 근거)", value: raw, set: setRaw, rows: 8 },
+              { id: "draft", label: "③ 자소서 초안 (draft_text · 검증 대상)", value: draft, set: setDraft, rows: 8 },
             ].map((f) => (
-              <label key={f.label} className="block">
-                <span className="flex items-center justify-between text-[12px] font-semibold text-navy-800">
-                  {f.label}
-                  <span className="font-mono text-[10.5px] font-normal text-slate-400">{f.value.length.toLocaleString()}/5,000</span>
-                </span>
+              <div key={f.id} className="block">
+                <div className="flex items-center justify-between gap-2 text-[12px] font-semibold text-navy-800">
+                  <label htmlFor={`input-${f.id}`}>{f.label}</label>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {f.id === "draft" && (
+                      <button
+                        type="button"
+                        onClick={copyDraft}
+                        disabled={!draft.trim()}
+                        className="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-navy-800 hover:bg-slate-50 disabled:opacity-40"
+                      >
+                        {draftCopied ? "복사됨 ✓" : "초안 복사"}
+                      </button>
+                    )}
+                    <span className="font-mono text-[10.5px] font-normal text-slate-400">{f.value.length.toLocaleString()}/5,000</span>
+                  </div>
+                </div>
                 <textarea
+                  id={`input-${f.id}`}
                   value={f.value}
                   maxLength={5000}
                   rows={f.rows}
@@ -213,7 +249,7 @@ export default function Home() {
                   }}
                   className="mt-1 w-full resize-y rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-[12.5px] leading-relaxed text-navy-950 outline-none focus:border-navy-500 focus:bg-white focus:ring-2 focus:ring-navy-100"
                 />
-              </label>
+              </div>
             ))}
             {appliedCount > 0 && (
               <p className="rounded-md bg-sky-50 px-3 py-2 text-[11.5px] text-sky-900">
@@ -272,7 +308,7 @@ export default function Home() {
 
           {result && (
             <Card className="overflow-hidden">
-              <div className="flex border-b border-slate-200 bg-slate-50 px-2 pt-2" role="tablist">
+              <div className="flex overflow-x-auto border-b border-slate-200 bg-slate-50 px-2 pt-2" role="tablist">
                 {(
                   [
                     { k: "fact", l: "팩트체크 리포트" },
@@ -285,7 +321,7 @@ export default function Home() {
                     role="tab"
                     aria-selected={tab === t.k}
                     onClick={() => setTab(t.k)}
-                    className={`rounded-t-lg px-4 py-2.5 text-[13px] font-semibold ${tab === t.k ? "border border-b-white border-slate-200 bg-white text-navy-900 -mb-px" : "text-slate-500 hover:text-navy-700"}`}
+                    className={`shrink-0 whitespace-nowrap rounded-t-lg px-3 py-2.5 text-[13px] font-semibold sm:px-4 ${tab === t.k ? "border border-b-white border-slate-200 bg-white text-navy-900 -mb-px" : "text-slate-500 hover:text-navy-700"}`}
                   >
                     {t.l}
                   </button>
@@ -297,6 +333,7 @@ export default function Home() {
                     result={result}
                     analyzedDraft={analyzedDraft}
                     applied={applied}
+                    draftEdited={draftEdited}
                     onApply={applyFix}
                     onApplyAll={applyAll}
                     activeId={activeId}
@@ -312,7 +349,15 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-slate-200 bg-white px-4 py-3 text-center text-[11px] text-slate-500">
-        본 결과는 AI(규칙 기반 코드 검증 + 생성형 AI)가 생성·검증한 참고 자료이며 최종 판단과 책임은 작성자에게 있습니다 · 입력값은 저장하지 않습니다 · 모든 샘플은 가상 데이터입니다
+        본 결과는 AI(규칙 기반 코드 검증 + 생성형 AI)가 생성·검증한 참고 자료이며 최종 판단과 책임은 작성자에게 있습니다 · 입력값은 저장하지 않습니다 · 모든 샘플은 가상 데이터입니다 ·{" "}
+        <a
+          href="https://github.com/5Color/careerguard"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-navy-700 underline decoration-navy-300 underline-offset-2 hover:text-navy-900"
+        >
+          GitHub 저장소 ↗
+        </a>
       </footer>
 
       <PluginModal open={pluginOpen} onClose={() => setPluginOpen(false)} />

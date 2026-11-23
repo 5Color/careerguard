@@ -50,18 +50,36 @@ export async function POST(request: Request) {
   const mode = body.mode === "offline" ? "offline" : "auto";
 
   const encoder = new TextEncoder();
+  const signal = request.signal;
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const send = (e: StreamEvent) => controller.enqueue(encoder.encode(JSON.stringify(e) + "\n"));
+      let closed = false;
+      const send = (e: StreamEvent) => {
+        if (closed || signal.aborted) return;
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(e) + "\n"));
+        } catch {
+          closed = true;
+        }
+      };
       try {
-        const result = await runPipeline({ jd, raw, draft, mode }, (log) => send({ type: "log", log }));
+        const result = await runPipeline({ jd, raw, draft, mode }, (log) => send({ type: "log", log }), signal);
         send({ type: "result", result });
       } catch (err) {
-        // 결정론적 단계까지 실패하는 경우는 입력 이상뿐 — 상세 스택/환경 정보는 노출하지 않는다
-        console.error("[analyze] pipeline error:", err);
-        send({ type: "error", message: redact(err instanceof Error ? err.message : "분석 중 오류가 발생했습니다.") });
+        if (!signal.aborted) {
+          // 결정론적 단계까지 실패하는 경우는 입력 이상뿐 — 상세 스택/환경 정보는 노출하지 않는다
+          console.error("[analyze] pipeline error:", err);
+          send({ type: "error", message: redact(err instanceof Error ? err.message : "분석 중 오류가 발생했습니다.") });
+        }
       } finally {
-        controller.close();
+        if (!closed) {
+          closed = true;
+          try {
+            controller.close();
+          } catch {
+            /* 이미 닫힌 스트림 */
+          }
+        }
       }
     },
   });
