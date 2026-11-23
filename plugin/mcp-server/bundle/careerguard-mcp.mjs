@@ -87015,9 +87015,6 @@ function buildGapRoadmap({ matrix, rawExperience, hints }) {
     const h2 = hintById.get(c.id);
     if (!h2) return c;
     if (c.keywords.length) {
-      if (COVERAGE_RANK[h2.status] < COVERAGE_RANK[c.status]) {
-        return { ...c, status: h2.status, evidence: h2.evidence || c.evidence, source: "llm" };
-      }
       return c;
     }
     return { ...c, status: h2.status, evidence: h2.evidence || c.evidence, source: "llm" };

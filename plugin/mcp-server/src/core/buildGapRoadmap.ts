@@ -402,11 +402,8 @@ export function buildGapRoadmap({ matrix, rawExperience, hints }: BuildGapRoadma
   const coverage = rule.map((c): RequirementCoverage => {
     const h = hintById.get(c.id);
     if (!h) return c;
-    // 하드 키워드(스택·자격)가 있는 요구사항: 코드 판정 우선, LLM은 더 엄격하게만
+    // 하드 키워드(스택·자격·역량)가 있는 요구사항: 원본 경험 기준 코드 판정 고정 (초안 수정 재검증 시 매칭률 흔들림 방지)
     if (c.keywords.length) {
-      if (COVERAGE_RANK[h.status] < COVERAGE_RANK[c.status]) {
-        return { ...c, status: h.status, evidence: h.evidence || c.evidence, source: "llm" };
-      }
       return c;
     }
     // 사전에 없는 소프트 역량: LLM 의미 판단 채택

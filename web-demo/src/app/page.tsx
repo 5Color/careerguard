@@ -308,7 +308,7 @@ export default function Home() {
 
           {result && (
             <Card className="overflow-hidden">
-              <div className="flex overflow-x-auto border-b border-slate-200 bg-slate-50 px-2 pt-2" role="tablist">
+              <div className="flex overflow-x-auto overflow-y-hidden bg-slate-50 px-2 pt-2 shadow-[inset_0_-1px_0_#e2e8f0]" role="tablist">
                 {(
                   [
                     { k: "fact", l: "팩트체크 리포트" },
@@ -321,7 +321,7 @@ export default function Home() {
                     role="tab"
                     aria-selected={tab === t.k}
                     onClick={() => setTab(t.k)}
-                    className={`shrink-0 whitespace-nowrap rounded-t-lg px-3 py-2.5 text-[13px] font-semibold sm:px-4 ${tab === t.k ? "border border-b-white border-slate-200 bg-white text-navy-900 -mb-px" : "text-slate-500 hover:text-navy-700"}`}
+                    className={`shrink-0 whitespace-nowrap rounded-t-lg px-3 py-2.5 text-[13px] font-semibold sm:px-4 ${tab === t.k ? "border border-b-0 border-slate-200 bg-white text-navy-900" : "text-slate-500 hover:text-navy-700"}`}
                   >
                     {t.l}
                   </button>
